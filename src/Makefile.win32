@@ -1,0 +1,74 @@
+# Makefile for Windows/MSVC.
+# Use from an MSVC console:
+#    nmake /f Makefile.win32
+#
+# To use the AVX2 code, you can add the following to CFLAGS:
+#   /DNTRUGEN_AVX2   enable the specific AVX2-aware code
+#   /arch:AVX2       blanket enabling of AVX2 for all code
+#
+# If /arch:AVX2 is set, then this not only enables the AVX2-aware code
+# (i.e. like setting /DNTRUGEN_AVX2), but also allows the compiler to
+# use AVX2 opcodes for all other functions. With /DNTRUGEN_AVX2 only,
+# only the internal functions that explicitly use AVX2 intrisics will
+# use AVX2 opcodes, while the rest of the functions will keep complying
+# with the standard ABI.
+
+CC = cl
+CFLAGS = /nologo /W4 /O2 # /DNTRUGEN_AVX2
+LD = cl
+LDFLAGS = /nologo
+LIBS =
+
+OBJ = ng_bat.obj ng_falcon.obj ng_fxp.obj ng_gauss.obj ng_hawk.obj ng_mp31.obj ng_ntru.obj ng_poly.obj ng_zint31.obj ng_prng.obj sha3.obj
+TESTOBJ = test_ntrugen.obj
+SPEEDOBJ = speed_ntrugen.obj
+
+all: test_ntrugen.exe speed_ntrugen.exe
+
+clean:
+	-del /Q $(OBJ) $(TESTOBJ) test_ntrugen.exe $(SPEEDOBJ) speed_ntrugen.exe
+
+test_ntrugen.exe: $(OBJ) $(TESTOBJ)
+	$(LD) $(LDFLAGS) /Fe:test_ntrugen.exe $(OBJ) $(TESTOBJ) $(LIBS)
+
+speed_ntrugen.exe: $(OBJ) $(SPEEDOBJ)
+	$(LD) $(LDFLAGS) /Fe:speed_ntrugen.exe $(OBJ) $(SPEEDOBJ) $(LIBS)
+
+ng_bat.obj: ng_bat.c ng_inner.h ng_config.h sha3.h
+	$(CC) $(CFLAGS) /c /Fo:ng_bat.obj ng_bat.c
+
+ng_falcon.obj: ng_falcon.c ng_inner.h ng_config.h sha3.h
+	$(CC) $(CFLAGS) /c /Fo:ng_falcon.obj ng_falcon.c
+
+ng_fxp.obj: ng_fxp.c ng_inner.h ng_config.h sha3.h
+	$(CC) $(CFLAGS) /c /Fo:ng_fxp.obj ng_fxp.c
+
+ng_gauss.obj: ng_gauss.c ng_inner.h ng_config.h sha3.h
+	$(CC) $(CFLAGS) /c /Fo:ng_gauss.obj ng_gauss.c
+
+ng_hawk.obj: ng_hawk.c ng_inner.h ng_config.h sha3.h
+	$(CC) $(CFLAGS) /c /Fo:ng_hawk.obj ng_hawk.c
+
+ng_mp31.obj: ng_mp31.c ng_inner.h ng_config.h sha3.h
+	$(CC) $(CFLAGS) /c /Fo:ng_mp31.obj ng_mp31.c
+
+ng_ntru.obj: ng_ntru.c ng_inner.h ng_config.h sha3.h
+	$(CC) $(CFLAGS) /c /Fo:ng_ntru.obj ng_ntru.c
+
+ng_poly.obj: ng_poly.c ng_inner.h ng_config.h sha3.h
+	$(CC) $(CFLAGS) /c /Fo:ng_poly.obj ng_poly.c
+
+ng_zint31.obj: ng_zint31.c ng_inner.h ng_config.h sha3.h
+	$(CC) $(CFLAGS) /c /Fo:ng_zint31.obj ng_zint31.c
+
+sha3.obj: sha3.c sha3.h
+	$(CC) $(CFLAGS) /c /Fo:sha3.obj sha3.c
+
+ng_prng.obj: ng_prng.c ng_inner.h ng_config.h ntrugen.h ntrugen_prng.h sha3.h
+	$(CC) $(CFLAGS) /c /Fo:ng_prng.obj ng_prng.c
+
+test_ntrugen.obj: test_ntrugen.c ng_inner.h ng_config.h ntrugen.h ntrugen_prng.h sha3.h
+	$(CC) $(CFLAGS) /c /Fo:test_ntrugen.obj test_ntrugen.c
+
+speed_ntrugen.obj: speed_ntrugen.c ntrugen.h ntrugen_prng.h
+	$(CC) $(CFLAGS) /c /Fo:speed_ntrugen.obj speed_ntrugen.c
