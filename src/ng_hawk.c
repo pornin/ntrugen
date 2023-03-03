@@ -676,7 +676,7 @@ Hawk_keygen(unsigned logn,
 				mp_montymul(t4[u], t4[(n - 1) - u], p, p0i), p);
 			/*
 			 * Value x is in anti-Montgomery representation;
-			 * it is enough to test intervtibility, but we need
+			 * it is enough to test invertibility, but we need
 			 * the actual value for the next test on (f,g).
 			 */
 			if (x == 0) {
@@ -775,7 +775,7 @@ Hawk_keygen(unsigned logn,
 		}
 
 		/*
-		 * F nad G are at the start of tt32[].
+		 * F and G are at the start of tt32[].
 		 */
 		int8_t *tF = (int8_t *)tt32;
 		int8_t *tG = tF + n;
