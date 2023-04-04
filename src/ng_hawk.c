@@ -701,7 +701,6 @@ Hawk_keygen(unsigned logn,
 		 */
 		p = PRIMES[1].p;
 		p0i = PRIMES[1].p0i;
-		R2 = PRIMES[1].R2;
 		for (size_t u = 0; u < n; u ++) {
 			t2[u] = mp_set(*(int32_t *)&t1[u], p);
 		}
