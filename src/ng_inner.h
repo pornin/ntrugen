@@ -1133,10 +1133,8 @@ fxr_round(fxr x)
 static inline fxr
 fxr_div2e(fxr x, unsigned n)
 {
-	int64_t v;
-
-	v = *(int64_t *)&x.v;
-	x.v = (uint64_t)((v + (((int64_t)1 << n) >> 1)) >> n);
+	x.v += (((uint64_t)1 << n) >> 1);
+	x.v = (uint64_t)(*(int64_t *)&x.v >> n);
 	return x;
 }
 
