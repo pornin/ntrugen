@@ -106,7 +106,7 @@ def mk_moduli():
     m = 1
     i = 0
     while i < mod_large_bl[len(mod_large_bl) - 1]:
-        p -= 2047
+        p -= 2048
         if is_small_prime(p):
             m *= p
             i += 1
@@ -120,7 +120,7 @@ def mk_moduli():
     assert len(mod_small) == 11
     assert len(mod_small_inc) == 11
     assert len(mod_large) == 10
-    assert h.hexdigest() == 'ceda3ac2809dca351b270f46e3fbef4488334dd4586d483e0116bdb7de7411b9'
+    assert h.hexdigest() == '383babc06a50dafbc446cecc9043ee30ac56d598e3ef057f4ab88e0ef0368f54'
 
 mk_moduli()
 p0 = 2147473409
@@ -1553,7 +1553,7 @@ def _run_test(logn):
         sh.update(bg)
         sh.update(bF)
         sh.update(bG)
-        print('%4d: %s' % (i, sh.hexdigest(20)))
+        print('%4d: %s' % (i, sh.hexdigest(20)), flush=True)
 
 import sys
 if __name__ == '__main__':
