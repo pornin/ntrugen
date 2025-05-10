@@ -513,7 +513,7 @@ def solve_NTRU_rec(logn_top, f, g, depth):
     # We have F' and G' from the deeper level; we then compute our own
     # (F, G) solution as:
     #    F = fx * G'(x^2)
-    #    G = gx * G'(x^2)
+    #    G = gx * F'(x^2)
     # with:
     #    fx = fe(x^2) - x*fo(x^2)
     #    gx = ge(x^2) - x*go(x^2)
@@ -590,7 +590,7 @@ def solve_NTRU_rec(logn_top, f, g, depth):
             Fx = poly_to_fxr(logn, F, tlen, FGlen - tlen, scale_x + toff)
             Gx = poly_to_fxr(logn, G, tlen, FGlen - tlen, scale_x + toff)
 
-            # k <- round((F*adj(f) + G*adj(G))/(f*adj(f) + g*adj(g)))
+            # k <- round((F*adj(f) + G*adj(g))/(f*adj(f) + g*adj(g)))
             vect_FFT(logn, Fx)
             vect_FFT(logn, Gx)
             t1 = vect_mul_fft(logn, Fx, fx)
