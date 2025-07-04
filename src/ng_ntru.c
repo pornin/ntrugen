@@ -903,7 +903,7 @@ solve_NTRU_depth0(const ntru_profile *restrict prof,
 		t1[(u << 1) + 0] = mp_montymul(gb, mF, p, p0i);
 		t1[(u << 1) + 1] = mp_montymul(ga, mF, p, p0i);
 	}
-#endif
+#endif // NTRUGEN_AVX2
 
 	/*
 	 * Layout:
@@ -1083,7 +1083,7 @@ solve_NTRU_depth0(const ntru_profile *restrict prof,
 		t3[u] = kd;
 		t3[n - 1 - u] = kd;
 	}
-#endif
+#endif // NTRUGEN_AVX2
 
 	/*
 	 * Current layout:
@@ -1126,7 +1126,7 @@ solve_NTRU_depth0(const ntru_profile *restrict prof,
 		t2[u] = (uint32_t)mp_norm(t2[u], p);
 		t3[u] = (uint32_t)mp_norm(t3[u], p);
 	}
-#endif
+#endif // NTRUGEN_AVX2
 
 #define DOWNSCALE   10
 	/*
@@ -1260,7 +1260,7 @@ solve_NTRU_depth0(const ntru_profile *restrict prof,
 		t1[u] = tF;
 		t2[u] = tG;
 	}
-#endif
+#endif // NTRUGEN_AVX2
 
 	/*
 	 * Convert back F and G into normal representation.

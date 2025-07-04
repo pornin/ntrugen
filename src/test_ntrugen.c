@@ -565,7 +565,7 @@ test_mp31(void)
 			}
 		}
 	}
-#endif
+#endif // NTRUGEN_AVX2
 
 	printf(" done.\n");
 	fflush(stdout);

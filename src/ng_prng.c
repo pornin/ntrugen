@@ -253,7 +253,7 @@ ntrugen_prng_chacha8_out(void *ctx, void *dst, size_t len)
 		}
 	}
 
-#else
+#else //NTRUGEN_AVX2
 	/*
 	 * Portable version.
 	 */
@@ -346,7 +346,7 @@ ntrugen_prng_chacha8_out(void *ctx, void *dst, size_t len)
 		}
 	}
 
-#endif
+#endif //NTRUGEN_AVX2
 
 	*((uint64_t *)ctx + 4) = cc;
 }
