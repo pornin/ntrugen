@@ -4,7 +4,7 @@
  * -------
  *
  * This code implements the key pair generation for the BAT, Falcon and
- * Hawk cryptographic algorithms. For all three algorithm, the private
+ * Hawk cryptographic algorithms. For all three algorithms, the private
  * key mainly consists of four polynomials f, g, F, and G, with small
  * integer coefficients and considered modulo X^n+1 for a given degree n.
  * The degree n is a power of 2, and is provided as the 'logn' parameter
@@ -24,7 +24,7 @@
  *
  * Each of the function defined below expects a "temporary buffer"
  * (called tmp, of size tmp_len bytes). The size of that buffer is
- * specified for each function with an expression similar to "24*n + 7";
+ * specified for each function with an expression similar to "20*n + 7";
  * internally, the code will need 8-byte alignment in memory, and the
  * extra 7 bytes are meant to ensure that such an alignment can be
  * achieved. If the caller can make sure that the tmp buffer is already
@@ -40,10 +40,10 @@
  * _also_ copied to the start of tmp on output, so that a caller in a
  * scarce memory situation may save a couple of kilobytes.
  *
- * All three key pair generation functions need 24*n bytes for tmp (+7 if
+ * All three key pair generation functions need 20*n bytes for tmp (+7 if
  * not 8-byte aligned), and an extra 2*n bytes for the f and g output
  * arrays (while F and G can be retrived from tmp on output), for a total
- * of 26624 bytes at n = 1024 (13312 bytes at n = 512).
+ * of 22528 bytes at n = 1024 (11264 bytes at n = 512).
  */
 
 #ifndef NTRUGEN_H__
@@ -66,7 +66,7 @@
  * ntrugen_prng.h file documents the API for such a PRNG.
  *
  * Optimization note: in the case of BAT and Falcon, the ntrugen code will
- * always invoke this source always by chunks of 512 bytes (i.e. len == 512).
+ * always invoke this source by chunks of 512 bytes (i.e. len == 512).
  * The Hawk implementation makes only a few (smaller) requests.
  */
 typedef void (*ntrugen_rng)(void *ctx, void *dst, size_t len);
@@ -83,19 +83,19 @@ typedef void (*ntrugen_rng)(void *ctx, void *dst, size_t len);
  * (logn parameter):
  *
  *  name            q   degree n   logn   security            tmp_len (bytes)
- *  BAT-128-256    128    256        8    80 bits               6151
- *  BAT-257-512    257    512        9    NIST-I (128 bits)    12295
- *  BAT-769-1024   769   1024       10    NIST-V (256 bits)    24583
+ *  BAT-128-256    128    256        8    80 bits               5127
+ *  BAT-257-512    257    512        9    NIST-I (128 bits)    10247
+ *  BAT-769-1024   769   1024       10    NIST-V (256 bits)    20487
  *
  * Private key elements are the polynomials f, g, F, G and w. All five
  * polynomials contain n elements. Elements of f and g are in [-2..+2]
  * ([-3..+3] for BAT-769-1024). Elements of F and G are in [-31..+31].
  * Elements of w are in [-65536..+65536].
- * The temporary buffer (tmp) requires 24*n bytes with 64-bit alignment;
- * providing 24*n + 7 bytes always works, regardless of the buffer alignment.
+ * The temporary buffer (tmp) requires 20*n bytes with 64-bit alignment;
+ * providing 20*n + 7 bytes always works, regardless of the buffer alignment.
  *
  * BAT uses the convention that g*F - f*G = q; this API follows that
- * convention (equivalent, f*G - g*F = -257 for BAT-257-512).
+ * convention (equivalently, f*G - g*F = -257 for BAT-257-512).
  */
 
 /*
@@ -125,7 +125,7 @@ typedef void (*ntrugen_rng)(void *ctx, void *dst, size_t len);
  *    as parameters are NULL or not, the polynomials are always computed
  *    and copied into the tmp buffer.
  *
- * The length of the temporary buffer should be at least 24*(2^logn) + 7 bytes.
+ * The length of the temporary buffer should be at least 20*(2^logn) + 7 bytes.
  */
 int ntrugen_BAT_keygen(unsigned logn,
 	int8_t *f, int8_t *g, int8_t *F, int8_t *G, int32_t *w,
@@ -174,8 +174,8 @@ int ntrugen_BAT_recover_G(unsigned logn,
  *      512         9     [-17..+17]
  *     1024        10     [-12..+12]
  * Elements of F and G all fit in [-127..+127].
- * The temporary buffer (tmp) requires 24*n bytes with 64-bit alignment;
- * providing 24*n + 7 bytes always works, regardless of the buffer alignment.
+ * The temporary buffer (tmp) requires 20*n bytes with 64-bit alignment;
+ * providing 20*n + 7 bytes always works, regardless of the buffer alignment.
  */
 
 /*
@@ -203,7 +203,7 @@ int ntrugen_BAT_recover_G(unsigned logn,
  *    as parameters are NULL or not, the polynomials are always computed
  *    and copied into the tmp buffer.
  *
- * The length of the temporary buffer should be at least 24*(2^logn) + 7 bytes.
+ * The length of the temporary buffer should be at least 20*(2^logn) + 7 bytes.
  */
 int ntrugen_Falcon_keygen(unsigned logn,
 	int8_t *f, int8_t *g, int8_t *F, int8_t *G,
@@ -226,8 +226,8 @@ int ntrugen_Falcon_keygen(unsigned logn,
  * Private key elements are the polynomials f, g, F and G. Elements of f
  * and g have a limited range that depends on the degree (see table
  * above). Elements of F and G all fit in [-127..+127].
- * The temporary buffer (tmp) requires 24*n bytes with 64-bit alignment;
- * providing 24*n + 7 bytes always works, regardless of the buffer alignment.
+ * The temporary buffer (tmp) requires 20*n bytes with 64-bit alignment;
+ * providing 20*n + 7 bytes always works, regardless of the buffer alignment.
  */
 
 /*
@@ -266,7 +266,7 @@ int ntrugen_Falcon_keygen(unsigned logn,
  *    always written to tmp[] right after q11. The seed can be used to
  *    regenerate the same (f,g) with ntrugen_Hawk_regen_fg().
  *
- * The length of the temporary buffer should be at least 24*(2^logn) + 7 bytes.
+ * The length of the temporary buffer should be at least 20*(2^logn) + 7 bytes.
  */
 int ntrugen_Hawk_keygen(unsigned logn,
 	int8_t *f, int8_t *g, int8_t *F, int8_t *G,
@@ -310,7 +310,7 @@ int ntrugen_Hawk_recover_G(unsigned logn,
  * polynomials are also copied into these buffers.
  *
  * Returned value: 0 on success, -1 on error (invalid parameters or key).
- * The length of the temporary buffer should be at least 20*(2^logn) + 7 bytes.
+ * The length of the temporary buffer should be at least 18*(2^logn) + 7 bytes.
  */
 int ntrugen_Hawk_recover_qq(unsigned logn,
 	int16_t *q00, int16_t *q01, int32_t *q11,

@@ -4,7 +4,7 @@ This is an implementation of the key pair generation process used in
 three lattice-based cryptographic schemes that use NTRU lattices, namely
 [BAT](https://eprint.iacr.org/2022/031),
 [Falcon](https://falcon-sign.info/), and
-[Hawk](https://eprint.iacr.org/2022/1155). This implementation is meant
+[Hawk](https://hawk-sign.info/). This implementation is meant
 for research and integration into implementations of these schemes; it
 has the following characteristics:
 
@@ -17,8 +17,10 @@ has the following characteristics:
   - It is faster and uses less RAM than previously published
     implementations.
 
-See [the accompanying note](ntrugen.pdf) for details on the involved
-techniques, and some benchmarks.
+See [the accompanying note](ntrugen.pdf) (also on
+[eprint](https://eprint.iacr.org/2023/290)) and the [updated
+note](ntrugen2.pdf) for details on the involved techniques, and some
+benchmarks.
 
 **Warning:** all the implemented algorithms may evolve in the near future;
 in particular, Falcon is currently undergoing specification by NIST. I

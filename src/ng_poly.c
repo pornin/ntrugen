@@ -826,10 +826,10 @@ poly_sub_scaled_ntt(unsigned logn, uint32_t *restrict F, size_t Flen,
 
 /* see ng_inner.h */
 void
-poly_sub_kfg_scaled_depth1(unsigned logn_top,
-	uint32_t *restrict F, uint32_t *restrict G, size_t FGlen,
+poly_sub_kf_scaled_depth1(unsigned logn_top,
+	uint32_t *restrict F, size_t FGlen,
 	uint32_t *restrict k, uint32_t sc,
-	const int8_t *restrict f, const int8_t *restrict g,
+	const int8_t *restrict f,
 	uint32_t *restrict tmp)
 {
 	unsigned logn = logn_top - 1;
@@ -840,7 +840,7 @@ poly_sub_kfg_scaled_depth1(unsigned logn_top,
 	uint32_t *t2 = t1 + n;
 
 	/*
-	 * Step 1: convert F and G to RNS. Since FGlen is equal to 1 or 2,
+	 * Step 1: convert F to RNS. Since FGlen is equal to 1 or 2,
 	 * we do it with some specialized code. We assume that the RNS
 	 * representation does not lose information (i.e. each signed
 	 * coefficient is lower than (p0*p1)/2, with FGlen = 2 and the two
@@ -850,11 +850,8 @@ poly_sub_kfg_scaled_depth1(unsigned logn_top,
 		uint32_t p = PRIMES[0].p;
 		for (size_t u = 0; u < n; u ++) {
 			uint32_t xf = F[u];
-			uint32_t xg = G[u];
 			xf |= (xf & 0x40000000) << 1;
-			xg |= (xg & 0x40000000) << 1;
 			F[u] = mp_set(*(int32_t *)&xf, p);
-			G[u] = mp_set(*(int32_t *)&xg, p);
 		}
 	} else {
 		uint32_t p0 = PRIMES[0].p;
@@ -876,23 +873,12 @@ poly_sub_kfg_scaled_depth1(unsigned logn_top,
 			r1 = mp_add(yl1, mp_montymul(yh1, z1, p1, p1_0i), p1);
 			F[u] = r0;
 			F[u + n] = r1;
-
-			xl = G[u];
-			xh = G[u + n] | ((G[u + n] & 0x40000000) << 1);
-			yl0 = xl - (p0 & ~tbmask(xl - p0));
-			yh0 = mp_set(*(int32_t *)&xh, p0);
-			r0 = mp_add(yl0, mp_montymul(yh0, z0, p0, p0_0i), p0);
-			yl1 = xl - (p1 & ~tbmask(xl - p1));
-			yh1 = mp_set(*(int32_t *)&xh, p1);
-			r1 = mp_add(yl1, mp_montymul(yh1, z1, p1, p1_0i), p1);
-			G[u] = r0;
-			G[u + n] = r1;
 		}
 	}
 
 	/*
-	 * Step 2: for FGlen small primes, convert F and G to RNS+NTT,
-	 * and subtract (2^sc)*(ft,gt). The (ft,gt) polynomials are computed
+	 * Step 2: for FGlen small primes, convert F to RNS+NTT,
+	 * and subtract (2^sc)*ft. The ft polynomial is computed
 	 * in RNS+NTT dynamically.
 	 */
 	for (size_t u = 0; u < FGlen; u ++) {
@@ -917,12 +903,10 @@ poly_sub_kfg_scaled_depth1(unsigned logn_top,
 		mp_NTT(logn, k, gm, p, p0i);
 
 		/*
-		 * Convert F and G to NTT.
+		 * Convert F to NTT.
 		 */
 		uint32_t *Fu = F + (u << logn);
-		uint32_t *Gu = G + (u << logn);
 		mp_NTT(logn, Fu, gm, p, p0i);
-		mp_NTT(logn, Gu, gm, p, p0i);
 
 		/*
 		 * Given the top-level f, we obtain ft = N(f) (the f at
@@ -969,46 +953,10 @@ poly_sub_kfg_scaled_depth1(unsigned logn_top,
 		}
 
 		/*
-		 * Same treatment for G and gt.
-		 */
-		for (size_t v = 0; v < n; v ++) {
-			t1[v] = mp_set(g[(v << 1) + 0], p);
-			t2[v] = mp_set(g[(v << 1) + 1], p);
-		}
-		mp_NTT(logn, t1, gm, p, p0i);
-		mp_NTT(logn, t2, gm, p, p0i);
-		for (size_t v = 0; v < hn; v ++) {
-			uint32_t xe0 = t1[(v << 1) + 0];
-			uint32_t xe1 = t1[(v << 1) + 1];
-			uint32_t xo0 = t2[(v << 1) + 0];
-			uint32_t xo1 = t2[(v << 1) + 1];
-			uint32_t xv0 = gm[hn + v];
-			uint32_t xv1 = p - xv0;
-			xe0 = mp_montymul(xe0, xe0, p, p0i);
-			xe1 = mp_montymul(xe1, xe1, p, p0i);
-			xo0 = mp_montymul(xo0, xo0, p, p0i);
-			xo1 = mp_montymul(xo1, xo1, p, p0i);
-			uint32_t xg0 = mp_sub(xe0,
-				mp_montymul(xo0, xv0, p, p0i), p);
-			uint32_t xg1 = mp_sub(xe1,
-				mp_montymul(xo1, xv1, p, p0i), p);
-
-			uint32_t xkg0 = mp_montymul(
-				mp_montymul(xg0, k[(v << 1) + 0], p, p0i),
-				R3, p, p0i);
-			uint32_t xkg1 = mp_montymul(
-				mp_montymul(xg1, k[(v << 1) + 1], p, p0i),
-				R3, p, p0i);
-			Gu[(v << 1) + 0] = mp_sub(Gu[(v << 1) + 0], xkg0, p);
-			Gu[(v << 1) + 1] = mp_sub(Gu[(v << 1) + 1], xkg1, p);
-		}
-
-		/*
-		 * Convert back F and G to RNS.
+		 * Convert back F to RNS.
 		 */
 		mp_mkigm(logn, t1, PRIMES[u].ig, p, p0i);
 		mp_iNTT(logn, Fu, t1, p, p0i);
-		mp_iNTT(logn, Gu, t1, p, p0i);
 
 		/*
 		 * We replaced k (plain 32-bit) with (2^sc)*k (NTT). We must
@@ -1029,13 +977,12 @@ poly_sub_kfg_scaled_depth1(unsigned logn_top,
 	}
 
 	/*
-	 * Output F and G are in RNS (non-NTT), but we want plain integers.
+	 * Output F is in RNS (non-NTT), but we want plain integers.
 	 */
 	if (FGlen == 1) {
 		uint32_t p = PRIMES[0].p;
 		for (size_t u = 0; u < n; u ++) {
 			F[u] = (uint32_t)mp_norm(F[u], p) & 0x7FFFFFFF;
-			G[u] = (uint32_t)mp_norm(G[u], p) & 0x7FFFFFFF;
 		}
 	} else {
 		uint32_t p0 = PRIMES[0].p;
@@ -1057,20 +1004,6 @@ poly_sub_kfg_scaled_depth1(unsigned logn_top,
 			z -= pp & -((hpp - z) >> 63);
 			F[u] = (uint32_t)z & 0x7FFFFFFF;
 			F[u + n] = (uint32_t)(z >> 31) & 0x7FFFFFFF;
-		}
-		for (size_t u = 0; u < n; u ++) {
-			/*
-			 * Apply CRT with two primes on the coefficient of G.
-			 */
-			uint32_t x0 = G[u];      /* mod p0 */
-			uint32_t x1 = G[u + n];  /* mod p1 */
-			uint32_t x0m1 = x0 - (p1 & ~tbmask(x0 - p1));
-			uint32_t y = mp_montymul(
-				mp_sub(x1, x0m1, p1), s, p1, p1_0i);
-			uint64_t z = (uint64_t)x0 + (uint64_t)p0 * (uint64_t)y;
-			z -= pp & -((hpp - z) >> 63);
-			G[u] = (uint32_t)z & 0x7FFFFFFF;
-			G[u + n] = (uint32_t)(z >> 31) & 0x7FFFFFFF;
 		}
 	}
 }

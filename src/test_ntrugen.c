@@ -879,7 +879,7 @@ test_BAT_keygen(void)
 	int8_t *G = xmalloc(1024);
 	int8_t *G2 = xmalloc(1024);
 	int32_t *w = xmalloc(1024 * sizeof *w);
-	void *tmpbytes = xmalloc(24 * 1024 + 18);
+	void *tmpbytes = xmalloc(20 * 1024 + 18);
 	uint32_t *tmp = (void *)(((uintptr_t)tmpbytes + 7) & ~(uintptr_t)7);
 	sha1_context sc;
 	sha1_init(&sc);
@@ -891,18 +891,18 @@ test_BAT_keygen(void)
 			buf[0] = logn;
 			buf[1] = (uint8_t)i;
 			ntrugen_prng_chacha8_init(&rc, buf, 2);
-			tmp[6 * n] = 0xA7C083FE;
-			tmp[6 * n + 1] = 0xA7C083FE;
-			tmp[6 * n + 2] = 0xA7C083FE;
+			tmp[5 * n] = 0xA7C083FE;
+			tmp[5 * n + 1] = 0xA7C083FE;
+			tmp[5 * n + 2] = 0xA7C083FE;
 			if (i == 0) {
 				if (BAT_keygen(logn, f, g, F, NULL, w,
 					&ntrugen_prng_chacha8_out, &rc,
-					tmp, 24 * n) != 0)
+					tmp, 20 * n) != 0)
 				{
 					fprintf(stderr, "ERR: call failed\n");
 					exit(EXIT_FAILURE);
 				}
-				if (tmp[6 * n] != 0xA7C083FE) {
+				if (tmp[5 * n] != 0xA7C083FE) {
 					fprintf(stderr, "ERR: buf overflow\n");
 					exit(EXIT_FAILURE);
 				}
@@ -918,10 +918,10 @@ test_BAT_keygen(void)
 				buf[0] = logn;
 				buf[1] = (uint8_t)i;
 				ntrugen_prng_chacha8_init(&rc, buf, 2);
-				memset(tmp, 0, 24 * n);
+				memset(tmp, 0, 20 * n);
 				if (BAT_keygen(logn, f, g, NULL, NULL, NULL,
 					&ntrugen_prng_chacha8_out, &rc,
-					tmp, 24 * n) != 0)
+					tmp, 20 * n) != 0)
 				{
 					fprintf(stderr, "ERR: call 2 failed\n");
 					exit(EXIT_FAILURE);
@@ -935,12 +935,12 @@ test_BAT_keygen(void)
 			} else if (i == 1) {
 				if (BAT_keygen(logn, f, g, NULL, NULL, NULL,
 					&ntrugen_prng_chacha8_out, &rc,
-					(int8_t *)tmp + 1, 24 * n + 7) != 0)
+					(int8_t *)tmp + 1, 20 * n + 7) != 0)
 				{
 					fprintf(stderr, "ERR: call failed\n");
 					exit(EXIT_FAILURE);
 				}
-				if (tmp[6 * n + 2] != 0xA7C083FE) {
+				if (tmp[5 * n + 2] != 0xA7C083FE) {
 					fprintf(stderr, "ERR: buf overflow\n");
 					exit(EXIT_FAILURE);
 				}
@@ -957,17 +957,17 @@ test_BAT_keygen(void)
 					fprintf(stderr, "WRONG RECOVERED G\n");
 					exit(EXIT_FAILURE);
 				}
-				tmp[6 * n] = 0xA7C083FE;
-				tmp[6 * n + 1] = 0xA7C083FE;
+				tmp[5 * n] = 0xA7C083FE;
+				tmp[5 * n + 1] = 0xA7C083FE;
 			} else {
 				if (BAT_keygen(logn, f, g, F, G2, w,
 					&ntrugen_prng_chacha8_out, &rc,
-					tmp, 24 * n) != 0)
+					tmp, 20 * n) != 0)
 				{
 					fprintf(stderr, "ERR: call failed\n");
 					exit(EXIT_FAILURE);
 				}
-				if (tmp[6 * n] != 0xA7C083FE) {
+				if (tmp[5 * n] != 0xA7C083FE) {
 					fprintf(stderr, "ERR: buf overflow\n");
 					exit(EXIT_FAILURE);
 				}
@@ -1025,7 +1025,7 @@ test_BAT_keygen(void)
 
 	uint8_t hv[20], hvref[20];
 	sha1_out(&sc, hv);
-	HEXTOBIN(hvref, "1734cef30cf67ef02ac1730988689fcd25e1a67d");
+	HEXTOBIN(hvref, "3a71dc372bb73a6f4b86eeea5dc2b553f2afeec4");
 	check_eq(hv, hvref, sizeof hv, "aggregate hash");
 
 	printf(" done.\n");
@@ -1042,7 +1042,7 @@ test_Falcon_keygen(void)
 	int8_t *g = xmalloc(1024);
 	int8_t *F = xmalloc(1024);
 	int8_t *G = xmalloc(1024);
-	void *tmpbytes = xmalloc(24 * 1024 + 18);
+	void *tmpbytes = xmalloc(20 * 1024 + 18);
 	uint32_t *tmp = (void *)(((uintptr_t)tmpbytes + 7) & ~(uintptr_t)7);
 	sha1_context sc;
 	sha1_init(&sc);
@@ -1054,18 +1054,18 @@ test_Falcon_keygen(void)
 			buf[0] = logn;
 			buf[1] = (uint8_t)i;
 			ntrugen_prng_chacha8_init(&rc, buf, 2);
-			tmp[6 * n] = 0xA7C083FE;
-			tmp[6 * n + 1] = 0xA7C083FE;
-			tmp[6 * n + 2] = 0xA7C083FE;
+			tmp[5 * n] = 0xA7C083FE;
+			tmp[5 * n + 1] = 0xA7C083FE;
+			tmp[5 * n + 2] = 0xA7C083FE;
 			if (i == 0) {
 				if (Falcon_keygen(logn, f, g, F, NULL,
 					&ntrugen_prng_chacha8_out, &rc,
-					tmp, 24 * n) != 0)
+					tmp, 20 * n) != 0)
 				{
 					fprintf(stderr, "ERR: call failed\n");
 					exit(EXIT_FAILURE);
 				}
-				if (tmp[6 * n] != 0xA7C083FE) {
+				if (tmp[5 * n] != 0xA7C083FE) {
 					fprintf(stderr, "ERR: buf overflow\n");
 					exit(EXIT_FAILURE);
 				}
@@ -1073,28 +1073,28 @@ test_Falcon_keygen(void)
 			} else if (i == 1) {
 				if (Falcon_keygen(logn, f, g, NULL, NULL,
 					&ntrugen_prng_chacha8_out, &rc,
-					(int8_t *)tmp + 1, 24 * n + 7) != 0)
+					(int8_t *)tmp + 1, 20 * n + 7) != 0)
 				{
 					fprintf(stderr, "ERR: call failed\n");
 					exit(EXIT_FAILURE);
 				}
-				if (tmp[6 * n + 2] != 0xA7C083FE) {
+				if (tmp[5 * n + 2] != 0xA7C083FE) {
 					fprintf(stderr, "ERR: buf overflow\n");
 					exit(EXIT_FAILURE);
 				}
 				memcpy(F, (int8_t *)tmp + 1, n);
 				memcpy(G, (int8_t *)tmp + 1 + n, n);
-				tmp[6 * n] = 0xA7C083FE;
-				tmp[6 * n + 1] = 0xA7C083FE;
+				tmp[5 * n] = 0xA7C083FE;
+				tmp[5 * n + 1] = 0xA7C083FE;
 			} else {
 				if (Falcon_keygen(logn, f, g, F, G,
 					&ntrugen_prng_chacha8_out, &rc,
-					tmp, 24 * n) != 0)
+					tmp, 20 * n) != 0)
 				{
 					fprintf(stderr, "ERR: call failed\n");
 					exit(EXIT_FAILURE);
 				}
-				if (tmp[6 * n] != 0xA7C083FE) {
+				if (tmp[5 * n] != 0xA7C083FE) {
 					fprintf(stderr, "ERR: buf overflow\n");
 					exit(EXIT_FAILURE);
 				}
@@ -1133,7 +1133,7 @@ test_Falcon_keygen(void)
 
 	uint8_t hv[20], hvref[20];
 	sha1_out(&sc, hv);
-	HEXTOBIN(hvref, "6e35bde9e244cfdc6e240df688ec7b1ff1533a8d");
+	HEXTOBIN(hvref, "9e07610b81a57c2eb8a7384ad29dd7b10d00c853");
 	check_eq(hv, hvref, sizeof hv, "aggregate hash");
 
 	printf(" done.\n");
@@ -1266,7 +1266,7 @@ test_Hawk_keygen(void)
 	int32_t *q11 = xmalloc(4096);
 	size_t max_epk_len = 3000;
 	uint8_t *epk = xmalloc(max_epk_len);
-	void *tmpbytes = xmalloc(24 * 1024 + 18);
+	void *tmpbytes = xmalloc(20 * 1024 + 18);
 	uint32_t *tmp = (void *)(((uintptr_t)tmpbytes + 7) & ~(uintptr_t)7);
 	sha1_context sc;
 	sha1_init(&sc);
@@ -1281,9 +1281,9 @@ test_Hawk_keygen(void)
 			shake_init(&rc, 256);
 			shake_inject(&rc, buf, 2);
 			shake_flip(&rc);
-			tmp[6 * n] = 0xA7C083FE;
-			tmp[6 * n + 1] = 0xA7C083FE;
-			tmp[6 * n + 2] = 0xA7C083FE;
+			tmp[5 * n] = 0xA7C083FE;
+			tmp[5 * n + 1] = 0xA7C083FE;
+			tmp[5 * n + 2] = 0xA7C083FE;
 			uint8_t seed[40];
 			memset(seed, (uint8_t)i, sizeof seed);
 			size_t seed_len = 8 + ((size_t)1 << (logn - 5));
@@ -1291,12 +1291,12 @@ test_Hawk_keygen(void)
 				if (Hawk_keygen(logn, f, g, F, NULL,
 					q00, q01, q11, seed,
 					(ntrugen_rng)&shake_extract, &rc,
-					tmp, 24 * n) != 0)
+					tmp, 20 * n) != 0)
 				{
 					fprintf(stderr, "ERR: call failed\n");
 					exit(EXIT_FAILURE);
 				}
-				if (tmp[6 * n] != 0xA7C083FE) {
+				if (tmp[5 * n] != 0xA7C083FE) {
 					fprintf(stderr, "ERR: buf overflow\n");
 					exit(EXIT_FAILURE);
 				}
@@ -1310,12 +1310,12 @@ test_Hawk_keygen(void)
 				if (Hawk_keygen(logn, f, g, NULL, NULL,
 					NULL, NULL, NULL, NULL,
 					(ntrugen_rng)&shake_extract, &rc,
-					(int8_t *)tmp + 1, 24 * n + 7) != 0)
+					(int8_t *)tmp + 1, 20 * n + 7) != 0)
 				{
 					fprintf(stderr, "ERR: call failed\n");
 					exit(EXIT_FAILURE);
 				}
-				if (tmp[6 * n + 2] != 0xA7C083FE) {
+				if (tmp[5 * n + 2] != 0xA7C083FE) {
 					fprintf(stderr, "ERR: buf overflow\n");
 					exit(EXIT_FAILURE);
 				}
@@ -1340,18 +1340,18 @@ test_Hawk_keygen(void)
 					fprintf(stderr, "WRONG RECOVERED G\n");
 					exit(EXIT_FAILURE);
 				}
-				tmp[6 * n] = 0xA7C083FE;
-				tmp[6 * n + 1] = 0xA7C083FE;
+				tmp[5 * n] = 0xA7C083FE;
+				tmp[5 * n + 1] = 0xA7C083FE;
 			} else {
 				if (Hawk_keygen(logn, f, g, F, G2,
 					q00, q01, q11, seed,
 					(ntrugen_rng)&shake_extract, &rc,
-					tmp, 24 * n) != 0)
+					tmp, 20 * n) != 0)
 				{
 					fprintf(stderr, "ERR: call failed\n");
 					exit(EXIT_FAILURE);
 				}
-				if (tmp[6 * n] != 0xA7C083FE) {
+				if (tmp[5 * n] != 0xA7C083FE) {
 					fprintf(stderr, "ERR: buf overflow\n");
 					exit(EXIT_FAILURE);
 				}
@@ -1398,7 +1398,7 @@ test_Hawk_keygen(void)
 			sha1_update_u32le(&sc, (uint32_t *)q11, n);
 
 			if (Hawk_recover_qq(logn, NULL, NULL, NULL,
-				f, g, F, G, tmp, 20 * n) != 0)
+				f, g, F, G, tmp, 18 * n) != 0)
 			{
 				fprintf(stderr, "RECOVER QQ ERR\n");
 				exit(EXIT_FAILURE);
@@ -1433,7 +1433,7 @@ test_Hawk_keygen(void)
 
 	uint8_t hv[20], hvref[20];
 	sha1_out(&sc, hv);
-	HEXTOBIN(hvref, "b80e094671a01142c363ccb2dba7dc2ad15d9413");
+	HEXTOBIN(hvref, "8efd06eb541a2192fa4c407ecb87cf9690204cec");
 	check_eq(hv, hvref, sizeof hv, "aggregate hash");
 
 	printf(" done.\n");
@@ -1487,6 +1487,7 @@ main(int argc, char *argv[])
 		if (argc == 2) {
 			logn = strtoul(argv[1], 0, 0);
 			algo = 2;
+			algo_name = "Falcon";
 		} else {
 			if (eqstr_nocase(argv[1], "BAT")) {
 				algo = 1;

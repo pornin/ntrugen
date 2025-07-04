@@ -658,6 +658,12 @@ mp_Rx31(unsigned e, uint32_t p, uint32_t p0i, uint32_t R2)
 #define mp_div   Zn(mp_div)
 uint32_t mp_div(uint32_t x, uint32_t y, uint32_t p);
 
+#if NTRUGEN_AVX2
+#define mp_div_x8   Zn(mp_div_x8)
+TARGET_AVX2
+__m256i mp_div_x8(__m256i ynum, __m256i yden, __m256i yp);
+#endif // NTRUGEN_AVX2
+
 /*
  * Compute the roots for NTT; given g (primitive 2048-th root of 1 modulo p),
  * this fills gm[] and igm[] with powers of g and 1/g:
@@ -1370,16 +1376,6 @@ void vect_div_autoadj_fft(unsigned logn,
 	fxr *restrict a, const fxr *restrict b);
 
 /*
- * Compute d = a*adj(a) + b*adj(b). Polynomials are in FFT representation.
- * Since d is auto-adjoint, only its first half is set; the second half
- * is _implicitly_ zero (this function does not access the second half of d).
- * Vectors a, b and d MUST NOT overlap.
- */
-#define vect_norm_fft   Zn(vect_norm_fft)
-void vect_norm_fft(unsigned logn, fxr *restrict d,
-	const fxr *restrict a, const fxr *restrict b);
-
-/*
  * Compute d = (2^e)/(a*adj(a) + b*adj(b)). Polynomials are in FFT
  * representation. Since d is auto-adjoint, only its first half is set; the
  * second half is _implicitly_ zero (this function does not access the
@@ -1388,6 +1384,13 @@ void vect_norm_fft(unsigned logn, fxr *restrict d,
 #define vect_invnorm_fft   Zn(vect_invnorm_fft)
 void vect_invnorm_fft(unsigned logn, fxr *restrict d,
 	const fxr *restrict a, const fxr *restrict b, unsigned e);
+
+/*
+ * Compute d = (2^e)*adj(a)/(a*adj(a)), written back into a[]. Polynomials
+ * are in FFT representation.
+ */
+#define vect_inv_mul2e_fft   Zn(vect_inv_mul2e_fft)
+void vect_inv_mul2e_fft(unsigned logn, fxr *a, unsigned e);
 
 /* ==================================================================== */
 /*
@@ -1508,27 +1511,26 @@ poly_sub_scaled_ntt(unsigned logn, uint32_t *restrict F, size_t Flen,
  * depth = 1
  * logn = logn_top - depth
  * Inputs:
- *    F, G    polynomials of degree 2^logn, plain integer representation (FGlen)
- *    FGlen   size of each coefficient of F and G (must be 1 or 2)
- *    f, g    polynomials of degree 2^logn_top, small coefficients
+ *    F       polynomial of degree 2^logn, plain integer representation (FGlen)
+ *    FGlen   size of each coefficient of F (must be 1 or 2)
+ *    f       polynomial of degree 2^logn_top, small coefficients
  *    k       polynomial of degree 2^logn (plain, 32-bit)
  *    sc      scaling logarithm (public value)
  *    tmp     temporary with room at least max(FGlen, 2^logn_top) words
  * Operation:
  *    F <- F - (2^sc)*k*ft
- *    G <- G - (2^sc)*k*gt
- * with (ft,gt) being the degree-n polynomials corresponding to (f,g)
+ * with ft being the degree-n polynomial corresponding to f
  * It is assumed that the result fits.
  *
  * WARNING: polynomial k is consumed in the process.
  *
  * This function uses 3*n words in tmp[].
  */
-#define poly_sub_kfg_scaled_depth1   Zn(poly_sub_kfg_scaled_depth1)
-void poly_sub_kfg_scaled_depth1(unsigned logn_top,
-	uint32_t *restrict F, uint32_t *restrict G, size_t FGlen,
+#define poly_sub_kf_scaled_depth1   Zn(poly_sub_kf_scaled_depth1)
+void poly_sub_kf_scaled_depth1(unsigned logn_top,
+	uint32_t *restrict F, size_t FGlen,
 	uint32_t *restrict k, uint32_t sc,
-	const int8_t *restrict f, const int8_t *restrict g,
+	const int8_t *restrict f,
 	uint32_t *restrict tmp);
 
 /*

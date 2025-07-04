@@ -6,7 +6,7 @@ static const ntru_profile SOLVE_Hawk_256 = {
 	{ 1, 1, 1, 2, 3, 5, 9, 17, 34, 0, 0 },
 	{ 1, 1, 2, 4, 7, 13, 26, 50, 0, 0 },
 	{ 1, 1, 1, 2, 3, 3, 3, 4, 0, 0 },
-	20,
+	14,
 	{ 0, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127 },
 	{ 0, 0, 1, 2, 2, 2, 2, 2, 2, 3, 3 }
 };
@@ -17,9 +17,9 @@ static const ntru_profile SOLVE_Hawk_512 = {
 	{ 1, 1, 1, 2, 3, 6, 11, 21, 41, 82, 0 },
 	{ 1, 2, 3, 5, 8, 16, 31, 61, 121, 0 },
 	{ 1, 1, 1, 2, 2, 3, 3, 4, 6, 0 },
-	15,
+	11,
 	{ 0, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127 },
-	{ 0, 0, 1, 2, 2, 2, 2, 2, 2, 3, 3 }
+	{ 0, 0, 1, 2, 2, 2, 2, 2, 2, 2, 3 }
 };
 
 static const ntru_profile SOLVE_Hawk_1024 = {
@@ -28,7 +28,7 @@ static const ntru_profile SOLVE_Hawk_1024 = {
 	{ 1, 1, 2, 2, 4, 7, 13, 25, 48, 96, 191 },
 	{ 1, 2, 3, 5, 10, 19, 37, 72, 143, 284 },
 	{ 1, 1, 2, 2, 3, 3, 3, 4, 4, 7 },
-	12,
+	9,
 	{ 0, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127 },
 	{ 0, 0, 1, 2, 2, 2, 2, 2, 2, 3, 3 }
 };
@@ -447,7 +447,7 @@ static const int8_t bits_lim11[11] = {
  * Given f, g, F and G, compute:
  *   q00 = f*adj(f) + g*adj(g)
  *   q01 = F*adj(f) + G*adj(g)
- *   q11 = F*adj(f) + G*adj(G)
+ *   q11 = F*adj(F) + G*adj(G)
  * The three polynomials are stored at the start of tmp[], in that order:
  *    q00   int16_t[n]
  *    q01   int16_t[n]
@@ -463,7 +463,7 @@ static const int8_t bits_lim11[11] = {
  * An error is also reported if q00 turns out not to be invertible modulo
  * X^n+1 and modulo 2147473409.
  *
- * RAM USAGE: 5*n words
+ * RAM USAGE: 4.5*n words
  */
 static int
 make_q001(unsigned logn,
@@ -478,6 +478,9 @@ make_q001(unsigned logn,
 	uint32_t p0i = PRIMES[0].p0i;
 	uint32_t R2 = PRIMES[0].R2;
 
+	/*
+	 * t1 to t4 have size n; t5 has size only hn.
+	 */
 	uint32_t *t1 = tmp;
 	uint32_t *t2 = t1 + n;
 	uint32_t *t3 = t2 + n;
@@ -485,14 +488,18 @@ make_q001(unsigned logn,
 	uint32_t *t5 = t4 + n;
 
 	mp_mkgm(logn, t1, PRIMES[0].g, p, p0i);
+
+	/*
+	 * t2 <- F*adj(f)
+	 * t3 <- g
+	 * t5 <- f*adj(f) + g*adj(g)  (auto-adjoint)
+	 */
 	poly_mp_set_small(logn, t2, f, p);
 	poly_mp_set_small(logn, t3, g, p);
 	poly_mp_set_small(logn, t4, F, p);
-	poly_mp_set_small(logn, t5, G, p);
 	mp_NTT(logn, t2, t1, p, p0i);
 	mp_NTT(logn, t3, t1, p, p0i);
 	mp_NTT(logn, t4, t1, p, p0i);
-	mp_NTT(logn, t5, t1, p, p0i);
 	for (size_t u = 0; u < hn; u ++) {
 		uint32_t xf = t2[u];
 		uint32_t xfa = t2[(n - 1) - u];
@@ -500,49 +507,92 @@ make_q001(unsigned logn,
 		uint32_t xga = t3[(n - 1) - u];
 		uint32_t xF = t4[u];
 		uint32_t xFa = t4[(n - 1) - u];
-		uint32_t xG = t5[u];
-		uint32_t xGa = t5[(n - 1) - u];
 
+		t2[u] = mp_montymul(R2,
+			mp_montymul(xF, xfa, p, p0i), p, p0i);
+		t2[n - 1 - u] = mp_montymul(R2,
+			mp_montymul(xFa, xf, p, p0i), p, p0i);
 		uint32_t xq00 = mp_montymul(R2, mp_add(
 			mp_montymul(xf, xfa, p, p0i),
 			mp_montymul(xg, xga, p, p0i), p), p, p0i);
-		uint32_t xq11 = mp_montymul(R2, mp_add(
-			mp_montymul(xF, xFa, p, p0i),
-			mp_montymul(xG, xGa, p, p0i), p), p, p0i);
-		uint32_t xq01_0 = mp_montymul(R2, mp_add(
-			mp_montymul(xF, xfa, p, p0i),
-			mp_montymul(xG, xga, p, p0i), p), p, p0i);
-		uint32_t xq01_1 = mp_montymul(R2, mp_add(
-			mp_montymul(xFa, xf, p, p0i),
-			mp_montymul(xGa, xg, p, p0i), p), p, p0i);
 		if (xq00 == 0) {
 			/* q00 is not invertible mod X^n+1 mod p,
 			   we report the error right away (key is invalid
 			   and will be discarded). */
 			return 0;
 		}
-		t3[u] = xq00;
-		t3[(n - 1) - u] = xq00;
-		t4[u] = xq01_0;
-		t4[(n - 1) - u] = xq01_1;
-		t5[u] = xq11;
-		t5[(n - 1) - u] = xq11;
+		t5[u] = xq00;
 	}
-	mp_mkigm(logn, t1, PRIMES[0].ig, p, p0i);
-	mp_iNTT(logn, t3, t1, p, p0i);
-	mp_iNTT(logn, t4, t1, p, p0i);
-	mp_iNTT(logn, t5, t1, p, p0i);
 
 	/*
-	 * t1 and t2 are free, we reuse them for the output.
+	 * t2 <- F*adj(f) + G*adj(g)
+	 * t4 <- G
 	 */
-	int16_t *q00 = (int16_t *)tmp;
+	poly_mp_set_small(logn, t4, G, p);
+	mp_NTT(logn, t4, t1, p, p0i);
+	for (size_t u = 0; u < hn; u ++) {
+		uint32_t xg = t3[u];
+		uint32_t xga = t3[(n - 1) - u];
+		uint32_t xG = t4[u];
+		uint32_t xGa = t4[(n - 1) - u];
+		t2[u] = mp_add(
+			mp_montymul(R2, mp_montymul(xG, xga, p, p0i), p, p0i),
+			t2[u], p);
+		t2[n - 1 - u] = mp_add(
+			mp_montymul(R2, mp_montymul(xGa, xg, p, p0i), p, p0i),
+			t2[n - 1 - u], p);
+	}
+
+	/*
+	 * t3 <- F*adj(F) + G*adj(G)
+	 * We reload F (we did not keep it previously because of RAM size
+	 * constraints); alternatively, we could use the fact that
+	 * q00*q11 - q01*adj(q01) = 1, which would avoid a NTT, but require
+	 * divisions (TODO: check which is faster on several architectures).
+	 */
+	poly_mp_set_small(logn, t3, F, p);
+	mp_NTT(logn, t3, t1, p, p0i);
+	for (size_t u = 0; u < hn; u ++) {
+		uint32_t xF = t3[u];
+		uint32_t xFa = t3[(n - 1) - u];
+		uint32_t xG = t4[u];
+		uint32_t xGa = t4[(n - 1) - u];
+
+		uint32_t xq11 = mp_montymul(R2, mp_add(
+			mp_montymul(xF, xFa, p, p0i),
+			mp_montymul(xG, xGa, p, p0i), p), p, p0i);
+		t3[u] = xq11;
+		t3[(n - 1) - u] = xq11;
+	}
+
+	/*
+	 * At this point:
+	 *   t1   free
+	 *   t2   F*adj(f) + G*adj(g)  (NTT)
+	 *   t3   F*adj(F) + G*adj(G)  (NTT)
+	 *   t4   free
+	 *   t5   f*adj(f) + g*adj(g)  (NTT, half-size)
+	 * We convert back values to normal representation. t4 receives
+	 * f*adj(f) + g*adj(g) (full-size).
+	 */
+	mp_mkigm(logn, t1, PRIMES[0].ig, p, p0i);
+	for (size_t u = 0; u < hn; u ++) {
+		t4[u] = t4[n - 1 - u] = t5[u];
+	}
+	mp_iNTT(logn, t2, t1, p, p0i);
+	mp_iNTT(logn, t3, t1, p, p0i);
+	mp_iNTT(logn, t4, t1, p, p0i);
+
+	/*
+	 * t1 is free and will receive q00 and q01.
+	 * t2 will receive q11 (already there, but normalized).
+	 */
+	int16_t *q00 = (int16_t *)t1;
 	int16_t *q01 = q00 + n;
-	int32_t *q11 = (int32_t *)(q01 + n);
 	for (size_t u = 0; u < n; u ++) {
-		int32_t xq00 = mp_norm(t3[u], p);
-		int32_t xq01 = mp_norm(t4[u], p);
-		int32_t xq11 = mp_norm(t5[u], p);
+		int32_t xq00 = mp_norm(t4[u], p);
+		int32_t xq01 = mp_norm(t2[u], p);
+		int32_t xq11 = mp_norm(t3[u], p);
 		if (u == 0) {
 			if (xq00 < -32768 || xq00 > +32767) {
 				return 0;
@@ -560,7 +610,7 @@ make_q001(unsigned logn,
 		}
 		q00[u] = (int16_t)xq00;
 		q01[u] = (int16_t)xq01;
-		q11[u] = xq11;
+		t2[u] = (uint32_t)xq11;
 	}
 
 	return 1;
@@ -589,7 +639,7 @@ Hawk_keygen(unsigned logn,
 	uintptr_t utmp2 = (utmp1 + 7) & ~(uintptr_t)7;
 	tmp_len -= (size_t)(utmp2 - utmp1);
 	uint32_t *tt32 = (void *)utmp2;
-	if (tmp_len < ((size_t)24 << logn)) {
+	if (tmp_len < ((size_t)20 << logn)) {
 		return -1;
 	}
 
@@ -907,7 +957,7 @@ Hawk_recover_qq(unsigned logn,
 	uintptr_t utmp2 = (utmp1 + 7) & ~(uintptr_t)7;
 	tmp_len -= (size_t)(utmp2 - utmp1);
 	uint32_t *tt32 = (void *)utmp2;
-	if (tmp_len < ((size_t)20 << logn)) {
+	if (tmp_len < ((size_t)18 << logn)) {
 		return -1;
 	}
 

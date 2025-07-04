@@ -6,7 +6,7 @@ const ntru_profile SOLVE_BAT_128_256 = {
 	{ 1, 1, 1, 2, 3, 4, 8, 14, 27, 0, 0 },
 	{ 1, 1, 2, 3, 6, 11, 20, 39, 0, 0 },
 	{ 1, 1, 1, 2, 3, 3, 3, 4, 0, 0 },
-	16,
+	13,
 	{ 0, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31 },
 	{ 0, 0, 1, 2, 2, 2, 2, 2, 2, 3, 3 }
 };
@@ -17,7 +17,7 @@ const ntru_profile SOLVE_BAT_257_512 = {
 	{ 1, 1, 1, 2, 3, 5, 8, 15, 30, 59, 0 },
 	{ 1, 1, 2, 4, 6, 12, 23, 44, 87, 0 },
 	{ 1, 1, 1, 2, 3, 3, 3, 4, 6, 0 },
-	16,
+	13,
 	{ 0, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31 },
 	{ 0, 0, 1, 2, 2, 2, 2, 2, 2, 3, 3 }
 };
@@ -28,7 +28,7 @@ const ntru_profile SOLVE_BAT_769_1024 = {
 	{ 1, 1, 1, 2, 3, 5, 10, 18, 35, 69, 137 },
 	{ 1, 1, 2, 4, 7, 14, 27, 52, 102, 204 },
 	{ 1, 1, 1, 2, 3, 3, 3, 4, 5, 7 },
-	12,
+	11,
 	{ 0, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31 },
 	{ 0, 0, 1, 2, 2, 2, 2, 2, 2, 3, 3 }
 };
@@ -66,7 +66,7 @@ const uint16_t gauss_BAT_769_1024[] = {
  * thus, for constant-time discipline, any error should induce rejection
  * of the (f,g,F,G) quadruplet.
  *
- * RAM USAGE: 5*n words
+ * RAM USAGE: 4.5*n words
  */
 static int
 compute_w(unsigned logn,
@@ -102,77 +102,92 @@ compute_w(unsigned logn,
 #endif
 
 	/*
-	 * Memory layout:
-	 *   gm    NTT support (n)
-	 *   Ft    receives F (n)
-	 *   Gt    receives G (n)
-	 *   ft    receives f (n)
-	 *   gt    receives g (n)
+	 * We create four buffers of size n words and one extra buffer of
+	 * size n/2 words.
 	 */
-	uint32_t *gm = tmp;
-	uint32_t *Ft = gm + n;
-	uint32_t *Gt = Ft + n;
-	uint32_t *ft = Gt + n;
-	uint32_t *gt = ft + n;
+	uint32_t *t1 = tmp;
+	uint32_t *t2 = t1 + n;
+	uint32_t *t3 = t2 + n;
+	uint32_t *t4 = t3 + n;
+	uint32_t *t5 = t4 + n;   /* half-size */
 
 	/*
-	 * Load polynomials and convert to NTT.
+	 * We want:
+	 *   t1 <- (gamma^2)*F*adj(f) + G*adj(g)  (RNS+NTT)
+	 *   t2 <- (gamma^2)*f*adj(f) + g*adj(g)  (RNS+NTT)
+	 * We work modulo a big 31-bit prime, which is large enough to
+	 * avoid wrap-arounds, and thus allows us to get the plain integer
+	 * values (after normalization).
 	 */
 	uint32_t p = PRIMES[0].p;
 	uint32_t p0i = PRIMES[0].p0i;
 	uint32_t R2 = PRIMES[0].R2;
+	uint32_t *gm = t1;
 	mp_mkgm(logn, gm, PRIMES[0].g, p, p0i);
-	for (size_t u = 0; u < n; u ++) {
-		Ft[u] = mp_set(F[u], p);
-		Gt[u] = mp_set(G[u], p);
-		ft[u] = mp_set(f[u], p);
-		gt[u] = mp_set(g[u], p);
+
+	/*
+	 * gmv <- R*gamma^2  (Montgomery representation of gamma^2)
+	 */
+	uint32_t gmv = mp_montymul(R2, mp_set(gamma2, p), p, p0i);
+
+	/*
+	 * t2 <- f  (RNS+NTT)
+	 * t3 <- g  (RNS+NTT)
+	 * t4 <- F  (RNS+NTT)
+	 */
+	poly_mp_set_small(logn, t2, f, p);
+	poly_mp_set_small(logn, t3, g, p);
+	poly_mp_set_small(logn, t4, F, p);
+	mp_NTT(logn, t2, gm, p, p0i);
+	mp_NTT(logn, t3, gm, p, p0i);
+	mp_NTT(logn, t4, gm, p, p0i);
+
+	/*
+	 * t5 <- (gamma^2)*f*adj(f) + g*adj(g)  (RNS+NTT)  (auto-adjoint)
+	 * t4 <- (gamma^2)*F*adj(f)             (RNS+NTT)
+	 */
+	for (size_t u = 0; u < hn; u ++) {
+		uint32_t xf = t2[u];
+		uint32_t xfa = t2[n - 1 - u];
+		uint32_t xg = t3[u];
+		uint32_t xga = t3[n - 1 - u];
+		uint32_t xF = t4[u];
+		uint32_t xFa = t4[n - 1 - u];
+		uint32_t gmvf = mp_montymul(gmv, xf, p, p0i);
+		uint32_t gmvfa = mp_montymul(gmv, xfa, p, p0i);
+		t5[u] = mp_montymul(R2, mp_add(
+			mp_montymul(xf, gmvfa, p, p0i),
+			mp_montymul(xg, xga, p, p0i), p), p, p0i);
+		t4[u] = mp_montymul(R2,
+			mp_montymul(xF, gmvfa, p, p0i), p, p0i);
+		t4[n - 1 - u] = mp_montymul(R2,
+			mp_montymul(xFa, gmvf, p, p0i), p, p0i);
 	}
-	mp_NTT(logn, Ft, gm, p, p0i);
-	mp_NTT(logn, Gt, gm, p, p0i);
-	mp_NTT(logn, ft, gm, p, p0i);
-	mp_NTT(logn, gt, gm, p, p0i);
 
 	/*
-	 * gmv <- R*R*gamma^2
+	 * t1 <- (gamma^2)*F*adj(f) + G*adj(g)  (RNS+NTT)
 	 */
-	uint32_t gmv = mp_montymul(R2, mp_montymul(R2,
-		mp_set(gamma2, p), p, p0i), p, p0i);
-
-	/*
-	 * Compute F*adj(f) + (gamma^2)*G*adj(g) into t1 (RNS+NTT).
-	 * t1 is an alias on gm.
-	 */
-	uint32_t *t1 = gm;
+	poly_mp_set_small(logn, t2, G, p);
+	mp_NTT(logn, t2, gm, p, p0i);
 	for (size_t u = 0; u < n; u ++) {
-		uint32_t xF = Ft[u];
-		uint32_t xG = Gt[u];
-		uint32_t xfa = mp_montymul(gmv, ft[(n - 1) - u], p, p0i);
-		uint32_t xga = mp_montymul(R2, gt[(n - 1) - u], p, p0i);
-		t1[u] = mp_add(
-			mp_montymul(xF, xfa, p, p0i),
-			mp_montymul(xG, xga, p, p0i), p);
+		uint32_t xG = t2[u];
+		uint32_t xga = t3[n - 1 - u];
+		uint32_t xz = t4[u];
+		uint32_t mga = mp_montymul(xga, R2, p, p0i);
+		t1[u] = mp_add(mp_montymul(mga, xG, p, p0i), xz, p);
 	}
 
 	/*
-	 * Compute (gamma^2)*f*adj(f) + g*adj(g) into t2 (plain, 32-bit).
-	 * t2 is an alias on Ft.
+	 * t2 <- (gamma^2)*f*adj(f) + g*adj(j)  (RNS+NTT) (full-size)
 	 */
-	uint32_t *t2 = Ft;
-	for (size_t u = 0; u < n; u ++) {
-		uint32_t xf = ft[u];
-		uint32_t xg = gt[u];
-		uint32_t xfa = mp_montymul(gmv, ft[(n - 1) - u], p, p0i);
-		uint32_t xga = mp_montymul(R2, gt[(n - 1) - u], p, p0i);
-		t2[u] = mp_add(
-			mp_montymul(xf, xfa, p, p0i),
-			mp_montymul(xg, xga, p, p0i), p);
+	for (size_t u = 0; u < hn; u ++) {
+		t2[u] = t2[n - 1 - u] = t5[u];
 	}
 
 	/*
 	 * Convert t1 and t2 to plain (32-bit).
 	 */
-	uint32_t *igm = t2 + n;
+	uint32_t *igm = t3;
 	mp_mkigm(logn, igm, PRIMES[0].ig, p, p0i);
 	mp_iNTT(logn, t1, igm, p, p0i);
 	mp_iNTT(logn, t2, igm, p, p0i);
@@ -190,18 +205,18 @@ compute_w(unsigned logn,
 	 *    t1    (gamma^2)*F*adj(f) + G*adj(g) (plain, 32-bit) (n)
 	 *    t2    (gamma^2)*f*adj(f) + g*adj(g) (plain, 32-bit) (n)
 	 *    rt1   receives the dividend (FFT) (n fxr = 2*n)
-	 *    rt2   receives the divisor (FFT) (hn fxr = n)
 	 *
-	 * The divisor is auto-adjoint, so it uses only half of the
-	 * space in FFT representation; we compute in rt1 then move it
-	 * to rt2.
+	 * rt2 is an alias on t2 (as hn fxr values) and recieves the
+	 * divisor (in FFT). The divisor is auto-adjoint, so it uses
+	 * only half of the space in FFT representation; we compute in
+	 * rt1 then move it to rt2.
 	 */
 	fxr *rt1 = (fxr *)(t2 + n);
-	fxr *rt2 = (fxr *)(rt1 + n);
 	for (size_t u = 0; u < n; u ++) {
 		rt1[u] = fxr_of(*(int32_t *)&t2[u]);
 	}
 	vect_FFT(logn, rt1);
+	fxr *rt2 = (fxr *)t2;
 	memmove(rt2, rt1, hn * sizeof *rt1);
 
 	/*
@@ -247,7 +262,6 @@ compute_w(unsigned logn,
 	 * round the coefficients and check that they are all in the
 	 * allowed [-2^16..+2^16] range.
 	 */
-	t1 = tmp;
 	fxr lim2 = fxr_of(1 << 6);
 	for (size_t u = 0; u < n; u ++) {
 		if (fxr_lt(lim2, fxr_abs(rt1[u]))) {
@@ -268,18 +282,16 @@ compute_w(unsigned logn,
 	 *   t1    w (plain, 32-bit) (n)
 	 *   t2    free (n)
 	 *   t3    free (n)
-	 *   gm    free (n)
-	 *   igm   free (n)
+	 *   t4    free (n)
+	 * gm and igm are set to both point to t4 (for space-saving reasons,
+	 * we use the same buffer for both values).
 	 */
-	t2 = t1 + n;
-	uint32_t *t3 = t2 + n;
-	gm = t3 + n;
-	igm = gm + n;
+	gm = igm = t4;
 
 	/*
 	 * Convert w to NTT + Montgomery.
 	 */
-	mp_mkgmigm(logn, gm, igm, PRIMES[0].g, PRIMES[0].ig, p, p0i);
+	mp_mkgm(logn, gm, PRIMES[0].g, p, p0i);
 	for (size_t u = 0; u < n; u ++) {
 		t1[u] = mp_montymul(R2, mp_set(*(int32_t *)&t1[u], p), p, p0i);
 	}
@@ -302,6 +314,7 @@ compute_w(unsigned logn,
 	for (size_t u = 0; u < n; u ++) {
 		t2[u] = mp_sub(t3[u], mp_montymul(t2[u], t1[u], p, p0i), p);
 	}
+	mp_mkigm(logn, igm, PRIMES[0].ig, p, p0i);
 	mp_iNTT(logn, t2, igm, p, p0i);
 	uint64_t Fdnorm = 0;
 	for (size_t u = 0; u < n; u ++) {
@@ -317,6 +330,7 @@ compute_w(unsigned logn,
 		t2[u] = mp_set(g[u], p);
 		t3[u] = mp_set((int32_t)qp * G[u], p);
 	}
+	mp_mkgm(logn, gm, PRIMES[0].g, p, p0i);
 	mp_NTT(logn, t2, gm, p, p0i);
 	mp_NTT(logn, t3, gm, p, p0i);
 
@@ -326,6 +340,7 @@ compute_w(unsigned logn,
 	for (size_t u = 0; u < n; u ++) {
 		t2[u] = mp_sub(t3[u], mp_montymul(t2[u], t1[u], p, p0i), p);
 	}
+	mp_mkigm(logn, igm, PRIMES[0].ig, p, p0i);
 	mp_iNTT(logn, t2, igm, p, p0i);
 	uint64_t Gdnorm = 0;
 	for (size_t u = 0; u < n; u ++) {
@@ -546,7 +561,7 @@ BAT_keygen(unsigned logn,
 	uintptr_t utmp2 = (utmp1 + 7) & ~(uintptr_t)7;
 	tmp_len -= (size_t)(utmp2 - utmp1);
 	uint32_t *tt32 = (void *)utmp2;
-	if (tmp_len < ((size_t)24 << logn)) {
+	if (tmp_len < ((size_t)20 << logn)) {
 		return -1;
 	}
 

@@ -1338,6 +1338,10 @@ vect_FFT(unsigned logn, fxr *f)
 	}
 }
 
+/* TODO: vect_FFT_autoadj() and vect_iFFT_autoadj(), for applying FFT or
+   inverse FFT when the polynomial is known to be auto-adjoint (this may
+   allow a few speed-ups). */
+
 #if NTRUGEN_AVX2
 TARGET_AVX2
 static inline void
@@ -1754,42 +1758,6 @@ vect_div_autoadj_fft(unsigned logn, fxr *restrict a, const fxr *restrict b)
 /* see ng_inner.h */
 TARGET_AVX2
 void
-vect_norm_fft(unsigned logn, fxr *restrict d,
-	const fxr *restrict a, const fxr *restrict b)
-{
-	size_t hn = (size_t)1 << (logn - 1);
-#if NTRUGEN_AVX2
-	if (logn >= 3) {
-		for (size_t u = 0; u < hn; u += 4) {
-			__m256i ya_re = _mm256_loadu_si256(
-				(const __m256i *)(a + u));
-			__m256i ya_im = _mm256_loadu_si256(
-				(const __m256i *)(a + u + hn));
-			__m256i yb_re = _mm256_loadu_si256(
-				(const __m256i *)(b + u));
-			__m256i yb_im = _mm256_loadu_si256(
-				(const __m256i *)(b + u + hn));
-			__m256i y0 = fxr_sqr_x4(ya_re);
-			__m256i y1 = fxr_sqr_x4(ya_im);
-			__m256i y2 = fxr_sqr_x4(yb_re);
-			__m256i y3 = fxr_sqr_x4(yb_im);
-			__m256i yd = _mm256_add_epi64(
-				_mm256_add_epi64(y0, y1),
-				_mm256_add_epi64(y2, y3));
-			_mm256_storeu_si256((__m256i *)(d + u), yd);
-		}
-	}
-#endif // NTRUGEN_AVX2
-	for (size_t u = 0; u < hn; u ++) {
-		d[u] = fxr_add(
-			fxr_add(fxr_sqr(a[u]), fxr_sqr(a[u + hn])),
-			fxr_add(fxr_sqr(b[u]), fxr_sqr(b[u + hn])));
-	}
-}
-
-/* see ng_inner.h */
-TARGET_AVX2
-void
 vect_invnorm_fft(unsigned logn, fxr *restrict d,
 	const fxr *restrict a, const fxr *restrict b, unsigned e)
 {
@@ -1825,5 +1793,39 @@ vect_invnorm_fft(unsigned logn, fxr *restrict d,
 			fxr_add(fxr_sqr(a[u]), fxr_sqr(a[u + hn])),
 			fxr_add(fxr_sqr(b[u]), fxr_sqr(b[u + hn])));
 		d[u] = fxr_div(fe, z);
+	}
+}
+
+/* see ng_inner.h */
+TARGET_AVX2
+void
+vect_inv_mul2e_fft(unsigned logn, fxr *a, unsigned e)
+{
+	size_t hn = (size_t)1 << (logn - 1);
+#if NTRUGEN_AVX2
+	if (logn >= 3) {
+		__m256i ye = _mm256_set1_epi64x(e);
+		for (size_t u = 0; u < hn; u += 4) {
+			__m256i yre = _mm256_loadu_si256(
+				(const __m256i *)(a + u));
+			__m256i yim = _mm256_loadu_si256(
+				(const __m256i *)(a + u + hn));
+			yim = _mm256_sub_epi64(_mm256_setzero_si256(), yim);
+			__m256i yz = _mm256_add_epi64(
+				fxr_sqr_x4(yre), fxr_sqr_x4(yim));
+			yre = fxr_div_x4(_mm256_sllv_epi64(yre, ye), yz);
+			yim = fxr_div_x4(_mm256_sllv_epi64(yim, ye), yz);
+			_mm256_storeu_si256((__m256i *)(a + u), yre);
+			_mm256_storeu_si256((__m256i *)(a + u + hn), yim);
+		}
+		return;
+	}
+#endif // NTRUGEN_AVX2
+	for (size_t u = 0; u < hn; u ++) {
+		fxr re = a[u];
+		fxr im = fxr_neg(a[u + hn]);
+		fxr z = fxr_add(fxr_sqr(re), fxr_sqr(im));
+		a[u] = fxr_div(fxr_mul2e(re, e), z);
+		a[u + hn] = fxr_div(fxr_mul2e(im, e), z);
 	}
 }
